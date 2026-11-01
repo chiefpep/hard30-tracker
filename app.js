@@ -16,7 +16,8 @@ const COUNTERS = [["water_oz", "Water", 100, "oz", [8, 16, 32, -8]], ["protein_g
 const NOV = Array.from({ length: 30 }, (_, i) => `2026-11-${String(i + 1).padStart(2, "0")}`);
 const TZ = "America/New_York";
 const $ = id => document.getElementById(id);
-const sb = supabase.createClient(H30.url, H30.anonKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: "h30-auth" } });
+const sb = supabase.createClient(H30.url, H30.anonKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: "h30-auth", flowType: "implicit", detectSessionInUrl: true } });
+const APP_URL = "https://chiefpep.github.io/hard30-tracker/";
 
 function todayNY() { return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
 function addDays(d, n) { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
@@ -215,6 +216,30 @@ function render() {
 
 // ---------- auth ----------
 let session = null;
+// Implicit flow on purpose: the emailed /auth/v1/verify?token= value is a plain token_hash that verifyOtp accepts on ANY device.
+// With PKCE it would be "pkce_..." and need the code verifier stored only on the requesting browser, so the paste path would break.
+async function handleRedirect() {
+  const href = location.href; if (!H30Auth.hasAuthParams(href)) return;
+  const u = new URL(href), q = u.searchParams, h = new URLSearchParams(u.hash.slice(1));
+  const err = q.get("error_description") || h.get("error_description");
+  try {
+    if (err) $("lmsg").textContent = err.replace(/\+/g, " ") + " Request a new link.";
+    else if (q.get("code")) { const { error } = await sb.auth.exchangeCodeForSession(q.get("code")); if (error) $("lmsg").textContent = error.message; }
+    else if (q.get("token_hash")) { await useParsed(H30Auth.parseSignInLink(href)); }
+    else if (h.get("access_token")) { const { data } = await sb.auth.getSession(); if (!data.session) await sb.auth.setSession({ access_token: h.get("access_token"), refresh_token: h.get("refresh_token") }); }
+  } finally { history.replaceState(null, "", H30Auth.cleanUrl(location.href)); }
+}
+async function useParsed(p) {
+  if (p.error) { $("lmsg").textContent = p.error; return false; }
+  let r;
+  if (p.kind === "session") r = await sb.auth.setSession({ access_token: p.access_token, refresh_token: p.refresh_token });
+  else {
+    r = await sb.auth.verifyOtp({ token_hash: p.token_hash, type: p.type });
+    if (r.error && p.type === "magiclink") { const r2 = await sb.auth.verifyOtp({ token_hash: p.token_hash, type: "email" }); if (!r2.error) r = r2; }
+  }
+  if (r.error) { $("lmsg").textContent = /expired|invalid/i.test(r.error.message) ? "That link is used up or expired (tapping it uses it). Request a new one and copy it without tapping." : r.error.message; return false; }
+  $("lmsg").textContent = ""; $("link").value = ""; await showAuth(); return true;
+}
 async function showAuth() {
   const { data } = await sb.auth.getSession(); session = data.session;
   $("login").classList.toggle("hidden", !!session); $("app").classList.toggle("hidden", !session);
@@ -223,9 +248,10 @@ async function showAuth() {
 $("em").value = H30.email;
 $("send").onclick = async () => {
   $("lmsg").textContent = "Sending…";
-  const { error } = await sb.auth.signInWithOtp({ email: $("em").value.trim(), options: { shouldCreateUser: false } });
-  $("lmsg").textContent = error ? error.message : "Code sent. Check your email."; if (!error) $("codeBox").classList.remove("hidden");
+  const { error } = await sb.auth.signInWithOtp({ email: $("em").value.trim(), options: { shouldCreateUser: false, emailRedirectTo: APP_URL } });
+  $("lmsg").textContent = error ? error.message : "Sent. On a laptop, tap the link. In the iPhone Home Screen app, copy the link and paste it below.";
 };
+$("useLink").onclick = async () => { $("lmsg").textContent = "Signing in…"; await useParsed(H30Auth.parseSignInLink($("link").value)); };
 $("verify").onclick = async () => {
   const { error } = await sb.auth.verifyOtp({ email: $("em").value.trim(), token: $("code").value.trim(), type: "email" });
   $("lmsg").textContent = error ? error.message : ""; if (!error) showAuth();
@@ -279,4 +305,4 @@ window.addEventListener("focus", wake); window.addEventListener("online", () => 
 setInterval(checkDay, 60000); setInterval(tick, 250); setInterval(flush, 30000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
-(async () => { db = await idb(); await loadOutbox(); await showAuth(); render(); })();
+(async () => { db = await idb(); await loadOutbox(); await handleRedirect(); await showAuth(); render(); })();

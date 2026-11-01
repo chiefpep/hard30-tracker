@@ -1,0 +1,20 @@
+const a = require("../auth-link.js"), assert = require("assert");
+const R = "https://chiefpep.github.io/hard30-tracker/";
+const V = "https://dscsrszpkdwojondhxyp.supabase.co/auth/v1/verify?token=0123456789abcdef0123456789abcdef0123456789abcdef01234567&type=magiclink&redirect_to=" + encodeURIComponent(R);
+let p = a.parseSignInLink(V); assert.deepStrictEqual(p, { kind: "token_hash", token_hash: "0123456789abcdef0123456789abcdef0123456789abcdef01234567", type: "magiclink" });
+assert.strictEqual(a.parseSignInLink("  <" + V.replace(/&/g, "&amp;") + ">\n").token_hash, p.token_hash);
+assert.strictEqual(a.parseSignInLink(V.replace("magiclink", "email")).type, "email");
+assert.strictEqual(a.parseSignInLink(V.replace("magiclink", "signup")).type, "magiclink");
+assert.ok(a.parseSignInLink(V.replace("token=0", "token=pkce_0")).error);
+assert.strictEqual(a.parseSignInLink(R + "?token_hash=abcabcabcabcabcabcabcabc&type=email").token_hash, "abcabcabcabcabcabcabcabc");
+assert.strictEqual(a.parseSignInLink(R + "#access_token=x&refresh_token=y&expires_in=3600&type=magiclink").kind, "session");
+assert.ok(a.parseSignInLink(R + "?code=abc").error);
+assert.ok(/expired/.test(a.parseSignInLink(R + "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired").error));
+assert.ok(a.parseSignInLink("hello").error); assert.ok(a.parseSignInLink("").error);
+assert.ok(a.parseSignInLink("https://example.com/page?token=abc").error); // token outside /auth/v1/verify ignored
+assert.strictEqual(a.cleanUrl(R + "?code=abc"), R);
+assert.strictEqual(a.cleanUrl(R + "#access_token=x&refresh_token=y&expires_in=3600&token_type=bearer&type=magiclink"), R);
+assert.strictEqual(a.cleanUrl(R + "?x=1&code=abc#keep"), R + "?x=1#keep");
+assert.strictEqual(a.cleanUrl(R + "#error=access_denied&error_code=otp_expired&error_description=x"), R);
+assert.strictEqual(a.hasAuthParams(R), false); assert.strictEqual(a.hasAuthParams(R + "?code=1"), true);
+console.log("auth-link tests: all passed");

@@ -13,3 +13,15 @@ Export CSV button downloads November from the server.
 
 SQL: supabase/001_schema.sql, 002_steps.sql, 003_inc_replay.sql (apply in order). Tests: supabase/rls_test.sql (set the second user's id first).
 Seeds: supabase/seed_2026-11-01.sql (applied), supabase/seed_template.sql for Wendy's later days.
+
+## Sign-in (default Supabase email template, no template edits)
+
+The app uses the implicit auth flow (`flowType: "implicit"`). The default Magic Link email links to `/auth/v1/verify?token=<token_hash>&type=magiclink&redirect_to=https://chiefpep.github.io/hard30-tracker/`. In implicit flow that token is a plain token hash, so `verifyOtp({ token_hash, type: "magiclink" })` (falling back to `type: "email"`) works on any device. With PKCE it would be `pkce_...` and need the code verifier stored in the requesting browser, which breaks the paste path, so PKCE is not used. A `?code=` redirect is still handled with `exchangeCodeForSession` in case the flow ever changes.
+
+- Laptop or Safari: tap the link. Supabase redirects back with `#access_token=...`, `detectSessionInUrl` stores the session, and auth params are stripped from the URL.
+- iPhone Home Screen app: do not tap the link (tapping consumes it and signs in Safari, which has separate storage). Long-press the link in Mail, Copy, paste into "Paste sign-in link", tap Sign in.
+- The 6-digit code box stays as a fallback for when the template ever carries `{{ .Token }}`.
+
+Required Supabase settings (Authentication > URL Configuration): Site URL `https://chiefpep.github.io/hard30-tracker/`, and the same URL in Redirect URLs. Authentication > Sign In / Providers: "Allow new users to sign up" off.
+
+Tests: `node tests/auth-link.test.js` (link parsing and URL cleanup).

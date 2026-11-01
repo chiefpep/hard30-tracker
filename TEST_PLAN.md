@@ -57,3 +57,12 @@ Not yet done: real browser sign-in, real two-device and iOS tests.
 
 ## Seeding Wendy's days
 Nov 1 is seeded (supabase/seed_2026-11-01.sql). For later days edit supabase/seed_template.sql VALUES rows (exercise keys "0".."8", checks walk/no_alcohol/read/clip, steps, water_oz, protein_g, note) and run via execute_sql. The row there is a placeholder.
+
+## Sign-in with the default template (SW v4)
+
+1. Headless: `node tests/auth-link.test.js` passes.
+2. Laptop: request a link, tap it. App opens signed in; address bar shows `https://chiefpep.github.io/hard30-tracker/` with no `#access_token` or `?code`.
+3. iPhone Home Screen app: request a link from inside the app. In Mail, long-press the link, Copy (do not tap). Paste in the app, Sign in. Signed in inside the Home Screen app.
+4. Paste a link that was already tapped: app says it is used up or expired and to request a new one.
+5. Paste garbage: "does not look like a sign-in link".
+6. After deploy, confirm the SW cache is `h30-shell-v4` (DevTools > Application > Cache Storage) and `auth-link.js` loads.

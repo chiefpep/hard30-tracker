@@ -24,10 +24,16 @@ textarea{min-height:70px}.mu{color:var(--mu);font-size:13px}
 </style></head><body><main>
 <div class="row"><h1 class="sp">Daily 15 + Hard 30</h1><span id="sync" class="badge">…</span></div>
 <section id="login" class="card hidden">
- <h2>Sign in</h2><p class="mu">A 6-digit code is emailed to you. Type it here (works inside the home-screen app).</p>
- <input id="em" type="email" autocomplete="email"><div class="row" style="margin-top:8px"><button class="pri" id="send">Email me a code</button></div>
- <div id="codeBox" class="hidden" style="margin-top:8px"><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
- <div class="row" style="margin-top:8px"><button class="pri" id="verify">Verify</button></div></div><p id="lmsg" class="mu"></p>
+ <h2>Sign in</h2>
+ <input id="em" type="email" autocomplete="email"><div class="row" style="margin-top:8px"><button class="pri" id="send">Email me a sign-in link</button></div>
+ <p class="mu"><b>Laptop or Safari:</b> tap the link in the email and you are signed in.</p>
+ <p class="mu"><b>iPhone Home Screen app:</b> do NOT tap the link (tapping uses it up and signs in Safari, not this app). In Mail, press and hold the link, tap Copy, then paste it here.</p>
+ <textarea id="link" rows="3" placeholder="Paste sign-in link here" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:100%"></textarea>
+ <div class="row" style="margin-top:8px"><button class="pri" id="useLink">Sign in with pasted link</button></div>
+ <details style="margin-top:8px"><summary class="mu">Have a 6-digit code instead?</summary>
+ <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
+ <div class="row" style="margin-top:8px"><button class="pri" id="verify">Verify code</button></div></details>
+ <p id="lmsg" class="mu"></p>
 </section>
 <div id="app" class="hidden">
  <section class="card"><div class="row"><button id="prev">‹</button><strong id="dayLbl" class="sp" style="text-align:center"></strong><button id="next">›</button><button id="todayBtn">Today</button></div>
@@ -42,4 +48,5 @@ textarea{min-height:70px}.mu{color:var(--mu);font-size:13px}
  <section id="failed" class="card hidden"></section><p id="err" class="mu"></p>
 </div></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js"></script><script src="app.js"></script></body></html>
+<script src="config.js"></script><script src="auth-link.js"></script>
+<script src="app.js"></script></body></html>
