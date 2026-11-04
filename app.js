@@ -12,7 +12,7 @@ const EXERCISES = [
   { name: "Couch stretch", dose: "60s each side", timer: 60 },
 ];
 const CHECKS = [["walk", "30 minute walk and 8k+ steps"], ["no_alcohol", "No alcohol"], ["read", "Read 10 pages"], ["clip", "Filmed a clip"]];
-const COUNTERS = [["water_oz", "Water", 100, "oz", [8, 16, 32, -8]], ["protein_g", "Protein", 120, "g", [10, 25, 40, -10]]];
+const COUNTERS = [["water_oz", "Water", 100, "oz", [4, 8, 16, 32, -8]], ["protein_g", "Protein", 120, "g", [10, 25, 40, -10]]];
 const NOV = Array.from({ length: 30 }, (_, i) => `2026-11-${String(i + 1).padStart(2, "0")}`);
 const TZ = "America/New_York";
 const $ = id => document.getElementById(id);
