@@ -1,4 +1,19 @@
 "use strict";
+// A phone can keep an old index.html (no score.js) for a few minutes after deploy.
+// Stop here, or the rest of this file throws and the screen stays blank.
+if (typeof H30Score === "undefined" || !H30Score || typeof H30Score.blank !== "function") {
+  const showUpdate = () => {
+    const p = document.createElement("p");
+    p.id = "h30-stale";
+    p.setAttribute("role", "alert");
+    p.textContent = "App updated - close and reopen";
+    p.style.cssText = "margin:24px 12px;padding:16px;border-radius:12px;background:#1e293b;color:#e2e8f0;font:20px/1.4 system-ui,-apple-system,sans-serif";
+    document.body.insertBefore(p, document.body.firstChild);
+  };
+  if (document.body) showUpdate();
+  else document.addEventListener("DOMContentLoaded", showUpdate);
+  throw new Error("App updated - close and reopen");
+}
 // Current Daily 15 (9 exercises, per Wendy, Nov 1). Keys "0".."8".
 const EXERCISES = [
   { name: "Tib raises", dose: "2x20" },
