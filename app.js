@@ -27,7 +27,7 @@ function uuid() { return crypto.randomUUID ? crypto.randomUUID() : "10000000-100
 let server = {};
 try { const s = JSON.parse(localStorage.getItem("h30-cache") || "{}"); if (s && typeof s === "object") server = s; } catch { server = {}; }
 function saveCache() { try { localStorage.setItem("h30-cache", JSON.stringify(server)); } catch {} }
-function blank(day) { return { day, checks: {}, exercises: {}, one_round: false, water_oz: 0, protein_g: 0, note: "", steps: null, deleted_at: null }; }
+function blank(day) { return H30Score.blank(day); }
 function norm(r, day) { // tolerate partial or corrupt rows
   const b = blank(day); if (!r || typeof r !== "object") return b;
   return { day, checks: (r.checks && typeof r.checks === "object") ? r.checks : {}, exercises: (r.exercises && typeof r.exercises === "object") ? r.exercises : {},
@@ -40,19 +40,7 @@ function idb() { return new Promise((res, rej) => { const q = indexedDB.open("h3
 function tx(mode, fn) { return new Promise((res, rej) => { const t = db.transaction("outbox", mode); const s = t.objectStore("outbox"); const r = fn(s); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); }
 async function loadOutbox() { outbox = await new Promise((res) => { const out = []; const c = db.transaction("outbox").objectStore("outbox").openCursor(); c.onsuccess = () => { const cur = c.result; if (cur) { out.push(cur.value); cur.continue(); } else res(out); }; }); }
 
-function applyOp(r, op) {
-  if (op.kind === "inc") { if (r.deleted_at) Object.assign(r, blank(r.day)); r[op.field] = Math.max(0, r[op.field] + op.delta); return r; }
-  const p = op.patch;
-  if (p.clear) { r.deleted_at = "pending"; return r; }
-  if (p.restore) { r.deleted_at = null; return r; }
-  if (r.deleted_at) Object.assign(r, blank(r.day));
-  if (p.checks) r.checks = { ...r.checks, ...p.checks };
-  if (p.exercises) r.exercises = { ...r.exercises, ...p.exercises };
-  if ("one_round" in p) r.one_round = p.one_round;
-  if ("note" in p) r.note = p.note;
-  if ("steps" in p) r.steps = p.steps;
-  return r;
-}
+function applyOp(r, op) { return H30Score.applyOp(r, op); }
 function view(day) { let r = norm(server[day], day); for (const op of outbox) if (op.day === day) r = applyOp(r, op); return r; }
 
 async function enqueue(op) {
@@ -109,14 +97,10 @@ function checkDay() { const t = todayNY(); if (t !== today) { if (!pinned || sel
 function pick(d) { commitNote(); sel = d; noteDirty = false; $("note").value = view(d).deleted_at ? "" : view(d).note; pinned = d !== today; render(); }
 
 // ---------- derived ----------
-function exDone(r) { return EXERCISES.every((_, i) => r.exercises[i] === true); }
-function status(r) {
-  if (r.deleted_at) r = blank(r.day);
-  const c = [exDone(r), !!r.checks.walk, r.water_oz >= 100, r.protein_g >= 120, !!r.checks.no_alcohol, !!r.checks.read, !!r.checks.clip];
-  if (c.every(Boolean)) return "done";
-  const any = c.some(Boolean) || Object.values(r.exercises).some(v => v === true) || r.water_oz > 0 || r.protein_g > 0 || r.note.trim() || r.one_round;
-  return any ? "part" : "none";
-}
+function exDone(r) { return H30Score.daily15Done(r, EXERCISES.length); }
+function workoutDone(r) { return H30Score.workoutDone(r, EXERCISES.length); }
+function workoutKind(r) { return H30Score.workoutKind(r, EXERCISES.length); }
+function status(r) { return H30Score.dayStatus(r, EXERCISES.length); }
 function streaks() {
   let best = 0, run = 0;
   for (const d of NOV) { if (d > today) break; if (status(view(d)) === "done") { run++; best = Math.max(best, run); } else if (d !== today) run = 0; }
@@ -187,10 +171,26 @@ function render() {
     ex.append(w);
   });
   const n = EXERCISES.filter((_, i) => R.exercises[i] === true).length;
-  $("exSum").textContent = n === EXERCISES.length ? `Daily 15 done${R.one_round ? " with one round. That counts." : "."}` : `${n} of ${EXERCISES.length} exercises done.`;
+  const kind = workoutKind(R);
+  $("exSum").textContent = exDone(R)
+    ? `Daily 15 done${R.one_round ? " with one round. That counts." : "."}`
+    : kind === "alt"
+      ? `Other workout counts for the workout check. ${n} of ${EXERCISES.length} Daily 15 exercises done.`
+      : `${n} of ${EXERCISES.length} exercises done.`;
   const h = $("h30"); h.innerHTML = "";
-  const wk = el(`<label class="ck ro"><input type="checkbox" disabled><span>Daily 15 workout (fills in when all ${EXERCISES.length} are done)</span></label>`);
-  wk.querySelector("input").checked = exDone(R); h.append(wk);
+  const wkLabel = kind === "daily15" ? "Workout: Daily 15" : kind === "alt" ? "Workout: other workout (not Daily 15)" : "Workout (all 9 Daily 15, or Other workout)";
+  const wk = el(`<label class="ck ro"><input type="checkbox" id="workoutDone" disabled><span id="workoutLbl"></span></label>`);
+  wk.querySelector("input").checked = workoutDone(R);
+  const wkSpan = wk.querySelector("span");
+  wkSpan.textContent = wkLabel;
+  if (kind === "daily15") wkSpan.classList.add("k-d15");
+  if (kind === "alt") wkSpan.classList.add("k-alt");
+  h.append(wk);
+  const alt = el(`<label class="ck"><input type="checkbox" id="altWorkout"><span class="sp">Other workout (not Daily 15)<br><span class="mu">Any real workout counts. Describe it in Notes.</span></span></label>`);
+  const altCb = alt.querySelector("input");
+  altCb.checked = R.checks.alt_workout === true;
+  altCb.onchange = () => enqueue({ kind: "patch", patch: { checks: { alt_workout: altCb.checked } } });
+  const slot = $("altSlot"); slot.innerHTML = ""; slot.append(alt);
   for (const [k, lbl] of CHECKS) { const w = el(`<label class="ck"><input type="checkbox"><span>${lbl}</span></label>`); const cb = w.querySelector("input");
     cb.checked = !!R.checks[k]; cb.onchange = () => enqueue({ kind: "patch", patch: { checks: { [k]: cb.checked } } }); h.append(w); }
   const c = $("ctr"); c.innerHTML = "";
@@ -204,12 +204,22 @@ function render() {
     c.append(w);
   }
   if (!noteDirty && document.activeElement !== $("note")) $("note").value = R.note;
+  $("note").placeholder = kind === "alt" ? "What was the other workout?" : "How did today go?";
   const cal = $("cal"); cal.innerHTML = "";
   const lead = new Date("2026-11-01T12:00:00Z").getUTCDay(); for (let i = 0; i < lead; i++) cal.append(el(`<span></span>`));
-  for (const d of NOV) { const s = status(view(d)); let cls = s === "done" ? "c-done" : s === "part" ? "c-part" : (d < today ? "c-miss" : "");
+  let altN = 0;
+  for (const d of NOV) {
+    const row = view(d); const s = status(row); const k = workoutKind(row);
+    if (d <= today && k === "alt") altN++;
+    let cls = s === "done" ? "c-done" : s === "part" ? "c-part" : (d < today ? "c-miss" : "");
+    if (k === "alt") cls += " c-alt"; else if (k === "daily15") cls += " c-d15";
     if (d === sel) cls += " c-sel"; if (d === today) cls += " c-today";
-    const x = el(`<div class="${cls}">${+d.slice(8)}</div>`); x.onclick = () => pick(d); cal.append(x); }
-  const st = streaks(); $("streaks").textContent = `Streak ${st.cur} · Best ${st.best}`;
+    const x = el(`<div class="${cls}">${+d.slice(8)}</div>`);
+    if (k === "alt") x.title = "Other workout (not Daily 15)";
+    else if (k === "daily15") x.title = "Daily 15";
+    x.onclick = () => pick(d); cal.append(x);
+  }
+  const st = streaks(); $("streaks").textContent = `Streak ${st.cur} · Best ${st.best} · Other workout ${altN}`;
   const fl = $("failed"); fl.innerHTML = ""; failed.forEach((op, i) => { const w = el(`<div class="row" style="padding:4px 0"><span class="sp mu">${op.day} ${op.kind === "inc" ? op.field + " " + op.delta : Object.keys(op.patch).join(",")}: ${String(op.error).replace(/</g, "&lt;")}</span></div>`); const r1 = el(`<button>Retry</button>`); r1.onclick = () => retryFailed(i); const r2 = el(`<button class="dan">Discard</button>`); r2.onclick = () => discardFailed(i); w.append(r1, r2); fl.append(w); }); fl.classList.toggle("hidden", !failed.length);
   $("err").textContent = syncErr && !off ? "Sync error: " + syncErr + " (taps are kept and will retry)" : "";
 }
@@ -275,8 +285,8 @@ $("export").onclick = async () => {
   const { data, error } = await sb.from("daily_log").select("*").gte("day", "2026-11-01").lte("day", "2026-11-30").order("day");
   if (error) { alert("Export failed: " + error.message); return; }
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const head = ["day", "status", "daily15", ...EXERCISES.map(e => e.name), "one_round", "walk_8k", "water_oz", "protein_g", "no_alcohol", "read_10", "clip", "steps", "note", "deleted_at", "updated_at"];
-  const rows = data.map(r0 => { const r = norm(r0, r0.day); return [r0.day, status(r), exDone(r), ...EXERCISES.map((_, i) => r.exercises[i] === true), r.one_round, !!r.checks.walk, r.water_oz, r.protein_g, !!r.checks.no_alcohol, !!r.checks.read, !!r.checks.clip, r.steps ?? "", r.note, r0.deleted_at ?? "", r0.updated_at]; });
+  const head = ["day", "status", "daily15", "alt_workout", "workout", ...EXERCISES.map(e => e.name), "one_round", "walk_8k", "water_oz", "protein_g", "no_alcohol", "read_10", "clip", "steps", "note", "deleted_at", "updated_at"];
+  const rows = data.map(r0 => { const r = norm(r0, r0.day); return [r0.day, status(r), exDone(r), H30Score.altFlag(r), workoutKind(r), ...EXERCISES.map((_, i) => r.exercises[i] === true), r.one_round, !!r.checks.walk, r.water_oz, r.protein_g, !!r.checks.no_alcohol, !!r.checks.read, !!r.checks.clip, r.steps ?? "", r.note, r0.deleted_at ?? "", r0.updated_at]; });
   const csv = [head, ...rows].map(a => a.map(q).join(",")).join("\n");
   await deliverCsv(csv, "hard30-november-2026.csv");
 };

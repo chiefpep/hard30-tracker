@@ -45,7 +45,7 @@ Not yet done: real browser sign-in, real two-device and iOS tests.
 8d. **iPhone installed-app export**: on the iPhone, open the app from the home-screen icon (standalone, not Safari), tap Export CSV. Expect the iOS share sheet with hard30-november-2026.csv; Save to Files and confirm it opens with all 9 exercise columns. Cancelling the sheet must not error. If the share sheet does not appear, expect the CSV to open in a new view instead (fallback), never a silent no-op.
 8e. **Unsynced export notice**: go offline, tap a few items, confirm "N unsynced, not in export" appears next to Export CSV and that the exported file lacks those taps. Reconnect; the notice clears once the badge reads synced.
 8f. **Stale timer state**: with a pre-v2 `h30-timers` entry in localStorage (DevTools), reload; it is removed and both timers show full time with no manual Reset.
-9. **Daily 15 toggle**: Hard 30 "Daily 15 workout" is read-only and only fills when all exercises are checked.
+9. **Workout check**: the Hard 30 workout box is read-only. It checks when all 9 exercises are done (label "Workout: Daily 15") or when "Other workout (not Daily 15)" is on (label "Workout: other workout (not Daily 15)"). One round alone does not check it. The note is where the other workout is described. Calendar: blue is a complete Daily 15 day, teal is a complete other-workout day. A yellow day with a blue bar has Daily 15 done but the day is not finished. A yellow day with a teal bar is an other workout and the day is not finished. Export adds alt_workout and workout columns after daily15.
 10. **Install**: Add to Home Screen on iPhone; sign in with typed 6-digit code inside the installed app.
 
 ## Blockers / dashboard steps
@@ -65,4 +65,10 @@ Nov 1 is seeded (supabase/seed_2026-11-01.sql). For later days edit supabase/see
 3. iPhone Home Screen app: request a link from inside the app. In Mail, long-press the link, Copy (do not tap). Paste in the app, Sign in. Signed in inside the Home Screen app.
 4. Paste a link that was already tapped: app says it is used up or expired and to request a new one.
 5. Paste garbage: "does not look like a sign-in link".
-6. After deploy, confirm the SW cache is `h30-shell-v4` (DevTools > Application > Cache Storage) and `auth-link.js` loads.
+6. After deploy, confirm the SW cache is `h30-shell-v6` (DevTools > Application > Cache Storage) and `score.js` loads.
+
+## Other workout
+
+`node tests/workout.test.js` covers: alt_workout with no exercises counts as the workout and, with the other Hard 30 items met, the day is done; a finished Daily 15 day is unchanged; one round alone is not completion; a soft-deleted day scores as empty and restore keeps alt_workout; later patches merge checks so alt_workout, the note, counters, and unknown keys stay.
+
+Browser check (local page, signed-in client stubbed, no write to the live project): Nov 10 with alt_workout and zero exercises shows the toggle on, "Workout: other workout (not Daily 15)", and a teal calendar day. Nov 4 shows "Workout: Daily 15" and stays blue even if the toggle is also turned on. Turning the toggle off sends only `{checks:{alt_workout:false}}`. A water tap and a walk edit leave the note and the flag alone. Nov 5 still reads as Daily 15 because that row's exercise keys were not changed.

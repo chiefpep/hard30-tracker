@@ -19,6 +19,8 @@ textarea{min-height:70px}.mu{color:var(--mu);font-size:13px}
 .badge{padding:3px 8px;border-radius:99px;font-size:12px;background:#334155}.badge.warn{background:var(--yel);color:#000}.badge.err{background:var(--red)}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal div{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border:1px solid #334155}
 .c-done{background:var(--blue)}.c-part{background:var(--yel);color:#000}.c-miss{background:var(--gray)}.c-sel{outline:2px solid #fff}.c-today{border:2px solid var(--blue)!important}
+.c-done.c-alt{background:#0f766e;color:var(--tx)}.c-part.c-d15{box-shadow:inset 0 -3px 0 #60a5fa}.c-part.c-alt{box-shadow:inset 0 -3px 0 #2dd4bf}
+.k-d15{color:#93c5fd}.k-alt{color:#5eead4}
 @keyframes fl{50%{background:#eab308}}.flash{animation:fl .5s 8;border-radius:8px}
 .tm{font-family:ui-monospace,monospace;font-size:18px;min-width:52px}.hidden{display:none}
 </style></head><body><main>
@@ -38,15 +40,16 @@ textarea{min-height:70px}.mu{color:var(--mu);font-size:13px}
 <div id="app" class="hidden">
  <section class="card"><div class="row"><button id="prev">‹</button><strong id="dayLbl" class="sp" style="text-align:center"></strong><button id="next">›</button><button id="todayBtn">Today</button></div>
   <div id="delBanner" class="hidden row" style="margin-top:8px"><span class="sp mu">This day was cleared.</span><button id="restore">Restore</button></div></section>
- <section class="card"><div class="row"><h2 class="sp">Daily 15</h2><label class="mu"><input type="checkbox" id="oneRound"> One round</label></div><div id="exList"></div><p id="exSum" class="mu"></p></section>
+ <section class="card"><div class="row"><h2 class="sp">Daily 15</h2><label class="mu"><input type="checkbox" id="oneRound"> One round</label></div>
+  <div id="altSlot"></div><div id="exList"></div><p id="exSum" class="mu"></p></section>
  <section class="card"><h2>Hard 30</h2><div id="h30"></div>
   <div id="ctr"></div></section>
  <section class="card"><h2>Notes</h2><textarea id="note" placeholder="How did today go?"></textarea><span id="noteSt" class="mu"></span></section>
  <section class="card"><div class="row"><h2 class="sp">November</h2><span class="mu" id="streaks"></span></div>
-  <div class="cal" id="cal"></div><p class="mu">Blue complete, yellow partial, gray missed.</p></section>
+  <div class="cal" id="cal"></div><p class="mu">Blue: complete, Daily 15. Teal: complete, other workout. Yellow: partial. Gray: missed. A bar under a yellow day is blue when Daily 15 is done, teal when the workout was something else.</p></section>
  <section class="card row"><button class="dan" id="clear">Clear day</button><span class="sp"></span><button id="export">Export CSV</button><span id="exportNote" class="mu hidden"></span><button id="refresh">Refresh</button><button id="logout">Sign out</button></section>
  <section id="failed" class="card hidden"></section><p id="err" class="mu"></p>
 </div></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script><script src="auth-link.js"></script>
-<script src="app.js"></script></body></html>
+<script src="score.js"></script><script src="app.js"></script></body></html>
